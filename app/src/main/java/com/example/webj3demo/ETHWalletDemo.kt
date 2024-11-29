@@ -23,6 +23,7 @@ import org.web3j.protocol.core.DefaultBlockParameterName
 import org.web3j.protocol.core.methods.request.Transaction
 import org.web3j.protocol.core.methods.response.EthGetBalance
 import org.web3j.protocol.http.HttpService
+import org.web3j.tx.RawTransactionManager
 import org.web3j.tx.gas.DefaultGasProvider
 import org.web3j.utils.Convert
 import org.web3j.utils.Numeric
@@ -30,6 +31,7 @@ import java.io.File
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.security.SecureRandom
+
 
 object ETHWalletDemo {
     val random = SecureRandom()
@@ -126,11 +128,36 @@ object ETHWalletDemo {
         val amount = BigDecimal(3)
         val valueInWei: BigDecimal = Convert.toWei(amount, Convert.Unit.ETHER)
         Log.e("wjr","SmartContract address ${credentials.address} $toAddress")
-        ///授权智能合约额度
-        usdtApprove(web3j, credentials, valueInWei.toBigInteger())
-        usdtTransferFrom(web3j, credentials, toAddress, valueInWei.toBigInteger())
-        ///使用智能合约转账
-        usdtTransfer(web3j, credentials, toAddress, valueInWei.toBigInteger())
+//        ///授权智能合约额度
+//        usdtApprove(web3j, credentials, valueInWei.toBigInteger())
+//        usdtTransferFrom(web3j, credentials, toAddress, valueInWei.toBigInteger())
+//        ///使用智能合约转账
+//        usdtTransfer(web3j, credentials, toAddress, valueInWei.toBigInteger())
+
+        ///直击使用生成的类
+        genTransaction(web3j, credentials, toAddress, valueInWei.toBigInteger())
+    }
+
+    fun genTransaction(
+        web3j: Web3j,
+        credentials: Credentials,
+        toAddress: String,
+        value: BigInteger
+    ) {
+        try {
+            val contractAbi =
+                ContractAbi.load(
+                    usdtContractAddress,
+                    web3j,
+                    RawTransactionManager(web3j, credentials, 11155111),
+                    DefaultGasProvider()
+                )
+            val result = contractAbi.transfer(toAddress, value).send()
+            Log.e("wjr", "genTransaction  ${result.transactionHash}")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Log.e("wjr", "genTransaction error  ${e.message}")
+        }
     }
 
     fun usdtApprove(web3j: Web3j, credentials: Credentials, value: BigInteger) {
