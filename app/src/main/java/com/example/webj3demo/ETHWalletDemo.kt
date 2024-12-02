@@ -25,6 +25,7 @@ import org.web3j.protocol.core.methods.response.EthGetBalance
 import org.web3j.protocol.http.HttpService
 import org.web3j.tx.RawTransactionManager
 import org.web3j.tx.gas.DefaultGasProvider
+import org.web3j.tx.gas.StaticGasProvider
 import org.web3j.utils.Convert
 import org.web3j.utils.Numeric
 import java.io.File
@@ -36,12 +37,12 @@ import java.security.SecureRandom
 object ETHWalletDemo {
     val random = SecureRandom()
     val usdtContractAddress = "0xF4bB9F6634b7228ede7F0252771015ca193853Fa"
-    val ethNodeAddress = "https://sepolia.drpc.org/"
+    val ethNodeAddress = "https://sepolia.infura.io/v3/ed257b038fdf462ebb43a33f967277c9"
+//    val ethNodeAddress = "https://mainnet.infura.io/v3/ed257b038fdf462ebb43a33f967277c9"
     val testMyKey = "0xdd65cb11a90f5efb9e530590d30d75d4b4dd537335e7003dcd5dcaeab9b2d4e1"
     val testOtherMnemonic =
         "happy lizard actual scorpion surround north random metal fetch burden canal novel"
     val web3j = Web3j.build(HttpService(ethNodeAddress))
-
     fun createWallet(context: Context) {
         val initialEntropy = ByteArray(16)
         random.nextBytes(initialEntropy)
@@ -127,7 +128,7 @@ object ETHWalletDemo {
         val toAddress = credential44.address
         val amount = BigDecimal(3)
         val valueInWei: BigDecimal = Convert.toWei(amount, Convert.Unit.ETHER)
-        Log.e("wjr","SmartContract address ${credentials.address} $toAddress")
+        Log.e("wjr", "SmartContract address ${credentials.address} $toAddress")
 //        ///授权智能合约额度
 //        usdtApprove(web3j, credentials, valueInWei.toBigInteger())
 //        usdtTransferFrom(web3j, credentials, toAddress, valueInWei.toBigInteger())
@@ -150,7 +151,10 @@ object ETHWalletDemo {
                     usdtContractAddress,
                     web3j,
                     RawTransactionManager(web3j, credentials, 11155111),
-                    DefaultGasProvider()
+                    StaticGasProvider(
+                        DefaultGasProvider.GAS_PRICE * BigInteger("2"),
+                        DefaultGasProvider.GAS_LIMIT
+                    )
                 )
             val result = contractAbi.transfer(toAddress, value).send()
             Log.e("wjr", "genTransaction  ${result.transactionHash}")
