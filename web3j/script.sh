@@ -1,1 +1,1 @@
-web3j-4.5.5/bin/web3j solidity generate --javaTypes -b ./contractAbi.bin -a ./contractAbi.abi -o ./  -p .
+web3j-1.4.1/bin/web3j generate solidity  -b ./contractAbi.bin -a ./contractAbi.abi -o ./  -p .

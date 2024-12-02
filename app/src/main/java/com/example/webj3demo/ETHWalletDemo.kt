@@ -21,6 +21,7 @@ import org.web3j.crypto.WalletUtils
 import org.web3j.protocol.Web3j
 import org.web3j.protocol.core.DefaultBlockParameterName
 import org.web3j.protocol.core.methods.request.Transaction
+import org.web3j.protocol.core.methods.response.EthCall
 import org.web3j.protocol.core.methods.response.EthGetBalance
 import org.web3j.protocol.http.HttpService
 import org.web3j.tx.RawTransactionManager
@@ -137,6 +138,7 @@ object ETHWalletDemo {
 
         ///直击使用生成的类
         genTransaction(web3j, credentials, toAddress, valueInWei.toBigInteger())
+        usdtBalanceOf(web3j,credentials)
     }
 
     fun genTransaction(
@@ -156,12 +158,27 @@ object ETHWalletDemo {
                         DefaultGasProvider.GAS_LIMIT
                     )
                 )
-            val result = contractAbi.transfer(toAddress, value).send()
-            Log.e("wjr", "genTransaction  ${result.transactionHash}")
+//            val result = contractAbi.transfer(toAddress, value).send()
+            val result = contractAbi.balanceOf(credentials.address).send()
+            Log.e("wjr", "genTransaction  $result")
         } catch (e: Exception) {
             e.printStackTrace()
             Log.e("wjr", "genTransaction error  ${e.message}")
         }
+    }
+
+    fun usdtBalanceOf(web3j: Web3j, credentials: Credentials) {
+        val function = Function(
+            "balanceOf",
+            listOf(Address(credentials.address)),
+            listOf(object : TypeReference<Uint256>() {})
+        )
+        val data = FunctionEncoder.encode(function)
+        val result = contractView(web3j, credentials.address, usdtContractAddress, data)
+        Log.e(
+            "wjr",
+            "usdtBalanceOf : ${BigInteger(result?.result?.substring(2, result.result.length), 16)}"
+        )
     }
 
     fun usdtApprove(web3j: Web3j, credentials: Credentials, value: BigInteger) {
@@ -201,7 +218,7 @@ object ETHWalletDemo {
         contractTransact(web3j, credentials, usdtContractAddress, data)
     }
 
-    fun contractView(web3j: Web3j, fromAddress: String, contractAddress: String, data: String) {
+    fun contractView(web3j: Web3j, fromAddress: String, contractAddress: String, data: String) : EthCall? {
         try {
             val transaction =
                 Transaction.createEthCallTransaction(fromAddress, contractAddress, data);
@@ -209,10 +226,12 @@ object ETHWalletDemo {
                 web3j.ethCall(transaction, DefaultBlockParameterName.LATEST).sendAsync().get();
             Log.e("wjr", "contractView data $data")
             Log.e("wjr", "contractView result ${ethCall.result}")
-            Log.e("wjr", "contractView error ${ethCall.error.code} ${ethCall.error.message}")
+            Log.e("wjr", "contractView error ${ethCall.error?.code} ${ethCall.error?.message}")
+            return ethCall
         } catch (e: Exception) {
             e.printStackTrace();
         }
+        return null
     }
 
     fun contractTransact(
