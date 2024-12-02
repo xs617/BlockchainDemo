@@ -24,6 +24,7 @@ import org.web3j.protocol.core.methods.request.Transaction
 import org.web3j.protocol.core.methods.response.EthCall
 import org.web3j.protocol.core.methods.response.EthGetBalance
 import org.web3j.protocol.http.HttpService
+import org.web3j.tx.Contract
 import org.web3j.tx.RawTransactionManager
 import org.web3j.tx.gas.DefaultGasProvider
 import org.web3j.tx.gas.StaticGasProvider
@@ -91,8 +92,7 @@ object ETHWalletDemo {
             // 获取账户地址
             val fromAddress: String = credentials.address
             // 获取账户余额
-            val balance: EthGetBalance =
-                web3j.ethGetBalance(fromAddress, DefaultBlockParameterName.LATEST).send()
+            val balance: EthGetBalance = web3j.ethGetBalance(fromAddress, DefaultBlockParameterName.PENDING).send()
             val ethBalance = Convert.fromWei(balance.balance.toString(), Convert.Unit.ETHER)
             val amount = BigDecimal(0.01)
             val valueInWei: BigDecimal = Convert.toWei(amount, Convert.Unit.ETHER)
@@ -104,14 +104,15 @@ object ETHWalletDemo {
             val ethGetTransactionCount =
                 web3j.ethGetTransactionCount(fromAddress, DefaultBlockParameterName.PENDING).send()
             val nonce = ethGetTransactionCount.transactionCount
+            var gas = web3j.ethGasPrice().send()
             val rawTransaction = RawTransaction.createEtherTransaction(
                 nonce,
-                DefaultGasProvider.GAS_PRICE.multiply(BigInteger("2")),
-                DefaultGasProvider.GAS_LIMIT,
+                gas.gasPrice,
+                Contract.GAS_LIMIT,
                 toAddress,
                 valueInWei.toBigInteger()
             )
-            Log.d("wjr", "Transaction nonce: $nonce ：gas ${DefaultGasProvider.GAS_PRICE}")
+            Log.d("wjr", "Transaction nonce: $nonce ：gas ${gas.gasPrice}")
             val signedMessage =
                 TransactionEncoder.signMessage(rawTransaction, 11155111, credentials)
             val hexValue = Numeric.toHexString(signedMessage)
@@ -127,7 +128,7 @@ object ETHWalletDemo {
         val credentials: Credentials = Credentials.create(testMyKey)
         val credential44 = Bip44WalletUtils.loadBip44Credentials("", testOtherMnemonic)
         val toAddress = credential44.address
-        val amount = BigDecimal(3)
+        val amount = BigDecimal(0.3)
         val valueInWei: BigDecimal = Convert.toWei(amount, Convert.Unit.ETHER)
         Log.e("wjr", "SmartContract address ${credentials.address} $toAddress")
 //        ///授权智能合约额度
@@ -137,8 +138,8 @@ object ETHWalletDemo {
 //        usdtTransfer(web3j, credentials, toAddress, valueInWei.toBigInteger())
 
         ///直击使用生成的类
-        genTransaction(web3j, credentials, toAddress, valueInWei.toBigInteger())
         usdtBalanceOf(web3j,credentials)
+        genTransaction(web3j, credentials, toAddress, valueInWei.toBigInteger())
     }
 
     fun genTransaction(
@@ -154,13 +155,13 @@ object ETHWalletDemo {
                     web3j,
                     RawTransactionManager(web3j, credentials, 11155111),
                     StaticGasProvider(
-                        DefaultGasProvider.GAS_PRICE * BigInteger("2"),
-                        DefaultGasProvider.GAS_LIMIT
+                        Contract.GAS_PRICE,
+                        Contract.GAS_LIMIT
                     )
                 )
-//            val result = contractAbi.transfer(toAddress, value).send()
-            val result = contractAbi.balanceOf(credentials.address).send()
+            val result = contractAbi.transfer(toAddress, value).send()
             Log.e("wjr", "genTransaction  $result")
+            usdtBalanceOf(ETHWalletDemo.web3j,credentials)
         } catch (e: Exception) {
             e.printStackTrace()
             Log.e("wjr", "genTransaction error  ${e.message}")
@@ -223,7 +224,7 @@ object ETHWalletDemo {
             val transaction =
                 Transaction.createEthCallTransaction(fromAddress, contractAddress, data);
             val ethCall =
-                web3j.ethCall(transaction, DefaultBlockParameterName.LATEST).sendAsync().get();
+                web3j.ethCall(transaction, DefaultBlockParameterName.PENDING).send();
             Log.e("wjr", "contractView data $data")
             Log.e("wjr", "contractView result ${ethCall.result}")
             Log.e("wjr", "contractView error ${ethCall.error?.code} ${ethCall.error?.message}")
@@ -246,8 +247,8 @@ object ETHWalletDemo {
         val nonce = ethGetTransactionCount.transactionCount
         val rawTransaction = RawTransaction.createTransaction(
             nonce,
-            DefaultGasProvider.GAS_PRICE.multiply(BigInteger("2")),
-            DefaultGasProvider.GAS_LIMIT,
+            Contract.GAS_PRICE,
+            Contract.GAS_LIMIT,
             contractAddress,
             data
         )
