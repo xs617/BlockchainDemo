@@ -25,9 +25,6 @@ import org.web3j.protocol.core.methods.response.EthCall
 import org.web3j.protocol.core.methods.response.EthGetBalance
 import org.web3j.protocol.http.HttpService
 import org.web3j.tx.Contract
-import org.web3j.tx.RawTransactionManager
-import org.web3j.tx.gas.DefaultGasProvider
-import org.web3j.tx.gas.StaticGasProvider
 import org.web3j.utils.Convert
 import org.web3j.utils.Numeric
 import java.io.File
@@ -35,16 +32,15 @@ import java.math.BigDecimal
 import java.math.BigInteger
 import java.security.SecureRandom
 
-
-object ETHWalletDemo {
+ class ETHWalletDemo(val networkType: NetworkType) {
     val random = SecureRandom()
-    val usdtContractAddress = "0xF4bB9F6634b7228ede7F0252771015ca193853Fa"
-    val ethNodeAddress = "https://sepolia.infura.io/v3/ed257b038fdf462ebb43a33f967277c9"
-//    val ethNodeAddress = "https://mainnet.infura.io/v3/ed257b038fdf462ebb43a33f967277c9"
+    val usdtContractAddress = AddressManager.getUSDTContractAddress(networkType)
+    val chainAddress = AddressManager.getNodeAddress(networkType)
+    val chainId = AddressManager.getChainId(networkType)
     val testMyKey = "0xdd65cb11a90f5efb9e530590d30d75d4b4dd537335e7003dcd5dcaeab9b2d4e1"
     val testOtherMnemonic =
         "happy lizard actual scorpion surround north random metal fetch burden canal novel"
-    val web3j = Web3j.build(HttpService(ethNodeAddress))
+    val web3j = Web3j.build(HttpService(chainAddress))
     fun createWallet(context: Context) {
         val initialEntropy = ByteArray(16)
         random.nextBytes(initialEntropy)
@@ -83,7 +79,7 @@ object ETHWalletDemo {
         Log.e("wjr", "credentialBtc44 : $addressP2PKH :  $addressP2WPKH : ")
     }
 
-    fun transactionSepoliaETH(web3j: Web3j) {
+    fun transaction() {
         try {
             val result = web3j.web3ClientVersion().sendAsync().get().web3ClientVersion
             Log.e("wjr", "version :  $result")
@@ -94,7 +90,7 @@ object ETHWalletDemo {
             // 获取账户余额
             val balance: EthGetBalance = web3j.ethGetBalance(fromAddress, DefaultBlockParameterName.PENDING).send()
             val ethBalance = Convert.fromWei(balance.balance.toString(), Convert.Unit.ETHER)
-            val amount = BigDecimal(0.01)
+            val amount = BigDecimal(0.001)
             val valueInWei: BigDecimal = Convert.toWei(amount, Convert.Unit.ETHER)
             val credential44 = Bip44WalletUtils.loadBip44Credentials("", testOtherMnemonic)
             val toAddress = credential44.address
@@ -107,14 +103,14 @@ object ETHWalletDemo {
             var gas = web3j.ethGasPrice().send()
             val rawTransaction = RawTransaction.createEtherTransaction(
                 nonce,
-                gas.gasPrice,
+                Contract.GAS_PRICE.multiply(BigInteger("2")),
                 Contract.GAS_LIMIT,
                 toAddress,
                 valueInWei.toBigInteger()
             )
             Log.d("wjr", "Transaction nonce: $nonce ：gas ${gas.gasPrice}")
             val signedMessage =
-                TransactionEncoder.signMessage(rawTransaction, 11155111, credentials)
+                TransactionEncoder.signMessage(rawTransaction, chainId, credentials)
             val hexValue = Numeric.toHexString(signedMessage)
             val ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send()
             Log.d("wjr", "Transaction Hash: ${ethSendTransaction.transactionHash}")
@@ -150,18 +146,10 @@ object ETHWalletDemo {
     ) {
         try {
             val contractAbi =
-                ContractAbi.load(
-                    usdtContractAddress,
-                    web3j,
-                    RawTransactionManager(web3j, credentials, 11155111),
-                    StaticGasProvider(
-                        Contract.GAS_PRICE,
-                        Contract.GAS_LIMIT
-                    )
-                )
-            val result = contractAbi.transfer(toAddress, value).send()
+                AddressManager.getContract(web3j, networkType, usdtContractAddress, credentials)
+            val result = contractAbi?.transfer(toAddress, value)?.send()
             Log.e("wjr", "genTransaction  $result")
-            usdtBalanceOf(ETHWalletDemo.web3j,credentials)
+            usdtBalanceOf(web3j, credentials)
         } catch (e: Exception) {
             e.printStackTrace()
             Log.e("wjr", "genTransaction error  ${e.message}")
@@ -180,6 +168,18 @@ object ETHWalletDemo {
             "wjr",
             "usdtBalanceOf : ${BigInteger(result?.result?.substring(2, result.result.length), 16)}"
         )
+    }
+
+    fun usdtSubscribe(web3j: Web3j, credentials: Credentials) {
+        val contractAbi = AddressManager.getContract(
+            web3j, networkType, usdtContractAddress, credentials
+        )
+        contractAbi?.transferEventFlowable(
+            DefaultBlockParameterName.LATEST,
+            DefaultBlockParameterName.LATEST,
+        )?.subscribe {
+            Log.e("wjr", "subscribe even ${it}")
+        }
     }
 
     fun usdtApprove(web3j: Web3j, credentials: Credentials, value: BigInteger) {
@@ -256,7 +256,7 @@ object ETHWalletDemo {
         try {
             // 发送交易
             val signedMessage =
-                TransactionEncoder.signMessage(rawTransaction, 11155111, credentials)
+                TransactionEncoder.signMessage(rawTransaction, chainId, credentials)
             val hexValue = Numeric.toHexString(signedMessage)
             val ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send()
             Log.e("wjr", "contractView result ${ethSendTransaction.transactionHash}")
