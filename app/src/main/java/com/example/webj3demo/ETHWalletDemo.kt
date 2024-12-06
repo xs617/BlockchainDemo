@@ -137,16 +137,17 @@ class ETHWalletDemo(val networkType: NetworkType) {
         )
         val bip44Keypair = Bip32ECKeyPair.deriveKeyPair(masterKeypair, legacyPairPath)
         val btcKey = ECKey.fromPrivate(bip44Keypair.privateKey)
-        val publicKeyBytes = btcKey.pubKey.copyOfRange(1, 33) // Replace this with the actual public key (33 bytes)
         val hexTapTweak = "e80fe1639c9ca050e3af1b39c143c63e429cbceb15d940fbb5c5a1f4af57c5e9e80fe1639c9ca050e3af1b39c143c63e429cbceb15d940fbb5c5a1f4af57c5e9"
         val tapTweak = hexStringToByteArray(hexTapTweak)
-        val tweakHash = Sha256Hash.hash(tapTweak + publicKeyBytes)
-        val tweakPublicKey = ECKey.fromPrivate(tweakHash).pubKey.copyOfRange(1, 33)
-        val outputPublicKey = ECKey.fromPublicOnly(byteArrayOf(2) + publicKeyBytes).pubKeyPoint.add(
-            ECKey.fromPublicOnly(byteArrayOf(2) + tweakPublicKey).pubKeyPoint
+        /// Tweaked Public Key Q = P + tG
+        val p = btcKey.pubKey.copyOfRange(1, 33) // Replace this with the actual public key (33 bytes)
+        val t = Sha256Hash.hash(tapTweak + p)
+        val tG = ECKey.fromPrivate(t).pubKey.copyOfRange(1, 33)
+        val tweakedPublicKeyQ = ECKey.fromPublicOnly(byteArrayOf(2) + p).pubKeyPoint.add(
+            ECKey.fromPublicOnly(byteArrayOf(2) + tG).pubKeyPoint
         ).getEncoded(false).copyOfRange(1, 33)
         try {
-            return Bech32.encodeWitnessAddress("bc", 1, outputPublicKey)
+            return Bech32.encodeWitnessAddress("bc", 1, tweakedPublicKeyQ)
         } catch (e: Exception) {
             e.printStackTrace()
         }
