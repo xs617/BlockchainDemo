@@ -125,7 +125,7 @@ class ETHWalletDemo(val networkType: NetworkType) {
     }
 
     fun buildTapRoot(): String {
-        val seed = MnemonicUtils.generateSeed(nextMnemonic, "")
+        val seed = MnemonicUtils.generateSeed(testOtherMnemonic, "")
         val masterKeypair = Bip32ECKeyPair.generateKeyPair(seed)
         // m/44'/60'/0'/0/0
         val legacyPairPath = intArrayOf(
@@ -146,6 +146,7 @@ class ETHWalletDemo(val networkType: NetworkType) {
         val tweakedPublicKeyQ = ECKey.fromPublicOnly(byteArrayOf(2) + p).pubKeyPoint.add(
             ECKey.fromPublicOnly(byteArrayOf(2) + tG).pubKeyPoint
         ).getEncoded(false).copyOfRange(1, 33)
+        Log.e("wjr","private Key = ${btcKey.getPrivateKeyEncoded(MainNetParams.get())}")
         try {
             return Bech32.encodeWitnessAddress("bc", 1, tweakedPublicKeyQ)
         } catch (e: Exception) {
