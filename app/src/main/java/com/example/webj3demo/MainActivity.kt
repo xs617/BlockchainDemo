@@ -87,6 +87,24 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         })
+                        Greeting("创建钱包", Modifier.clickable {
+                            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                                try {
+                                    ETHWalletDemo(NetworkType.ETH_SEPOLIA).createWallet(this@MainActivity)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        })
+                        Greeting("创建钱包的btc地址", Modifier.clickable {
+                            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                                try {
+                                    ETHWalletDemo(NetworkType.ETH_SEPOLIA).createBtcAddress()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        })
                     }
 
                 }

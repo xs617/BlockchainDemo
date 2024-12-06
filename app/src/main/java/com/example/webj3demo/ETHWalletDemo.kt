@@ -2,9 +2,12 @@ package com.example.webj3demo
 
 import android.content.Context
 import android.util.Log
+import org.bitcoinj.core.Base58
 import org.bitcoinj.core.ECKey
+import org.bitcoinj.core.Sha256Hash
 import org.bitcoinj.params.MainNetParams
 import org.bitcoinj.script.Script
+import org.bouncycastle.crypto.digests.RIPEMD160Digest
 import org.web3j.abi.FunctionEncoder
 import org.web3j.abi.TypeReference
 import org.web3j.abi.datatypes.Address
@@ -14,6 +17,7 @@ import org.web3j.abi.datatypes.generated.Uint256
 import org.web3j.crypto.Bip32ECKeyPair
 import org.web3j.crypto.Bip44WalletUtils
 import org.web3j.crypto.Credentials
+import org.web3j.crypto.Hash.sha256
 import org.web3j.crypto.MnemonicUtils
 import org.web3j.crypto.RawTransaction
 import org.web3j.crypto.TransactionEncoder
@@ -32,7 +36,8 @@ import java.math.BigDecimal
 import java.math.BigInteger
 import java.security.SecureRandom
 
- class ETHWalletDemo(val networkType: NetworkType) {
+
+class ETHWalletDemo(val networkType: NetworkType) {
     val random = SecureRandom()
     val usdtContractAddress = AddressManager.getUSDTContractAddress(networkType)
     val chainAddress = AddressManager.getNodeAddress(networkType)
@@ -40,6 +45,8 @@ import java.security.SecureRandom
     val testMyKey = "0xdd65cb11a90f5efb9e530590d30d75d4b4dd537335e7003dcd5dcaeab9b2d4e1"
     val testOtherMnemonic =
         "happy lizard actual scorpion surround north random metal fetch burden canal novel"
+    val nextMnemonic =
+        "legal corn aisle check champion comic index furnace embark sad three detect"
     val web3j = Web3j.build(HttpService(chainAddress))
     fun createWallet(context: Context) {
         val initialEntropy = ByteArray(16)
@@ -61,22 +68,98 @@ import java.security.SecureRandom
         val credential44 = Bip44WalletUtils.loadBip44Credentials("", mnemonic)
         Log.e("wjr", "credential39 : ${credential39.address} : ${credential39.ecKeyPair.privateKey} : ${credential39.ecKeyPair.publicKey}")
         Log.e("wjr", "credential44 : ${credential44.address} : ${credential44.ecKeyPair.privateKey} : ${credential44.ecKeyPair.publicKey}")
+    }
 
-        val seed = MnemonicUtils.generateSeed(mnemonic, "")
+    fun createBtcAddress() {
+        val seed = MnemonicUtils.generateSeed(testOtherMnemonic, "")
         val masterKeypair = Bip32ECKeyPair.generateKeyPair(seed)
         // m/44'/60'/0'/0/0
-        val pairPath = intArrayOf(
+        val legacyPairPath = intArrayOf(
             44 or Bip32ECKeyPair.HARDENED_BIT,
             0 or Bip32ECKeyPair.HARDENED_BIT,
             0 or Bip32ECKeyPair.HARDENED_BIT,
             0,
             0
         )
-        val bip44Keypair = Bip32ECKeyPair.deriveKeyPair(masterKeypair, pairPath)
+        val bip44Keypair = Bip32ECKeyPair.deriveKeyPair(masterKeypair, legacyPairPath)
         val key = ECKey.fromPrivate(bip44Keypair.privateKey)
-        val addressP2PKH = org.bitcoinj.core.Address.fromKey(MainNetParams(), key, Script.ScriptType.P2PKH)
-        val addressP2WPKH = org.bitcoinj.core.Address.fromKey(MainNetParams(), key, Script.ScriptType.P2WPKH)
-        Log.e("wjr", "credentialBtc44 : $addressP2PKH :  $addressP2WPKH : ")
+
+        val address = buildBTCP2PKH()
+        val addressRoot = buildTapRoot()
+        val addressP2PKH =
+            org.bitcoinj.core.Address.fromKey(MainNetParams(), key, Script.ScriptType.P2PKH)
+        Log.e("wjr", " P2PKH : $address")
+        Log.e("wjr", " P2PKH : $addressP2PKH")
+        Log.e("wjr", " TapRoot : $addressRoot")
+    }
+
+    fun buildBTCP2PKH(): String {
+        val seed = MnemonicUtils.generateSeed(testOtherMnemonic, "")
+        val masterKeypair = Bip32ECKeyPair.generateKeyPair(seed)
+        // m/44'/60'/0'/0/0
+        val legacyPairPath = intArrayOf(
+            44 or Bip32ECKeyPair.HARDENED_BIT,
+            0 or Bip32ECKeyPair.HARDENED_BIT,
+            0 or Bip32ECKeyPair.HARDENED_BIT,
+            0,
+            0
+        )
+        val bip44Keypair = Bip32ECKeyPair.deriveKeyPair(masterKeypair, legacyPairPath)
+        val key = ECKey.fromPrivate(bip44Keypair.privateKey)
+
+        // Step 1: 公钥进行 SHA-256 哈希
+        val publicHash256 = sha256(key.pubKey)
+        // Step 2: 对 SHA-256 哈希值进行 RIPEMD-160 哈希
+        val publish160 = RIPEMD160Digest().let {
+            it.update(publicHash256, 0, publicHash256.size)
+            val result = ByteArray(it.digestSize)
+            it.doFinal(result, 0)
+            result
+        }
+        // Step 3: 加上版本字节（0x00 对于比特币主网）
+        val adVersion = byteArrayOf(0x00.toByte()).plus(publish160)
+        // Step 4: 计算校验和
+        val checksum = sha256(sha256(adVersion)).copyOfRange(0, 4)
+        // Step 5: 生成最终字节数组并进行 Base58 编码
+        return Base58.encode(adVersion.plus(checksum))
+    }
+
+    fun buildTapRoot(): String {
+        val seed = MnemonicUtils.generateSeed(nextMnemonic, "")
+        val masterKeypair = Bip32ECKeyPair.generateKeyPair(seed)
+        // m/44'/60'/0'/0/0
+        val legacyPairPath = intArrayOf(
+            86 or Bip32ECKeyPair.HARDENED_BIT,
+            0 or Bip32ECKeyPair.HARDENED_BIT,
+            0 or Bip32ECKeyPair.HARDENED_BIT,
+            0,
+            0
+        )
+        val bip44Keypair = Bip32ECKeyPair.deriveKeyPair(masterKeypair, legacyPairPath)
+        val btcKey = ECKey.fromPrivate(bip44Keypair.privateKey)
+        val publicKeyBytes = btcKey.pubKey.copyOfRange(1, 33) // Replace this with the actual public key (33 bytes)
+        val hexTapTweak = "e80fe1639c9ca050e3af1b39c143c63e429cbceb15d940fbb5c5a1f4af57c5e9e80fe1639c9ca050e3af1b39c143c63e429cbceb15d940fbb5c5a1f4af57c5e9"
+        val tapTweak = hexStringToByteArray(hexTapTweak)
+        val tweakHash = Sha256Hash.hash(tapTweak + publicKeyBytes)
+        val tweakPublicKey = ECKey.fromPrivate(tweakHash).pubKey.copyOfRange(1, 33)
+        val outputPublicKey = ECKey.fromPublicOnly(byteArrayOf(2) + publicKeyBytes).pubKeyPoint.add(
+            ECKey.fromPublicOnly(byteArrayOf(2) + tweakPublicKey).pubKeyPoint
+        ).getEncoded(false).copyOfRange(1, 33)
+        try {
+            return Bech32.encodeWitnessAddress("bc", 1, outputPublicKey)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return ""
+    }
+
+    fun hexStringToByteArray(hex: String): ByteArray {
+        val byteArray = ByteArray(hex.length / 2)
+        for (i in byteArray.indices) {
+            byteArray[i] =
+                ((hex[i * 2].digitToInt(16) shl 4) + hex[i * 2 + 1].digitToInt(16)).toByte()
+        }
+        return byteArray
     }
 
     fun transaction() {
@@ -88,7 +171,8 @@ import java.security.SecureRandom
             // 获取账户地址
             val fromAddress: String = credentials.address
             // 获取账户余额
-            val balance: EthGetBalance = web3j.ethGetBalance(fromAddress, DefaultBlockParameterName.PENDING).send()
+            val balance: EthGetBalance =
+                web3j.ethGetBalance(fromAddress, DefaultBlockParameterName.PENDING).send()
             val ethBalance = Convert.fromWei(balance.balance.toString(), Convert.Unit.ETHER)
             val amount = BigDecimal(0.001)
             val valueInWei: BigDecimal = Convert.toWei(amount, Convert.Unit.ETHER)
@@ -114,7 +198,10 @@ import java.security.SecureRandom
             val hexValue = Numeric.toHexString(signedMessage)
             val ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send()
             Log.d("wjr", "Transaction Hash: ${ethSendTransaction.transactionHash}")
-            Log.d("wjr", "Transaction error: ${ethSendTransaction.error.code} ${ethSendTransaction.error.message}")
+            Log.d(
+                "wjr",
+                "Transaction error: ${ethSendTransaction.error.code} ${ethSendTransaction.error.message}"
+            )
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -134,7 +221,7 @@ import java.security.SecureRandom
 //        usdtTransfer(web3j, credentials, toAddress, valueInWei.toBigInteger())
 
         ///直击使用生成的类
-        usdtBalanceOf(web3j,credentials)
+        usdtBalanceOf(web3j, credentials)
         genTransaction(web3j, credentials, toAddress, valueInWei.toBigInteger())
     }
 
@@ -219,7 +306,12 @@ import java.security.SecureRandom
         contractTransact(web3j, credentials, usdtContractAddress, data)
     }
 
-    fun contractView(web3j: Web3j, fromAddress: String, contractAddress: String, data: String) : EthCall? {
+    fun contractView(
+        web3j: Web3j,
+        fromAddress: String,
+        contractAddress: String,
+        data: String
+    ): EthCall? {
         try {
             val transaction =
                 Transaction.createEthCallTransaction(fromAddress, contractAddress, data);
@@ -260,7 +352,10 @@ import java.security.SecureRandom
             val hexValue = Numeric.toHexString(signedMessage)
             val ethSendTransaction = web3j.ethSendRawTransaction(hexValue).send()
             Log.e("wjr", "contractView result ${ethSendTransaction.transactionHash}")
-            Log.e("wjr", "contractView error ${ethSendTransaction.error.code} ${ethSendTransaction.error.message}")
+            Log.e(
+                "wjr",
+                "contractView error ${ethSendTransaction.error.code} ${ethSendTransaction.error.message}"
+            )
             val receipt = web3j.ethGetTransactionReceipt(ethSendTransaction.transactionHash).send()
 
             if (receipt.result != null) {

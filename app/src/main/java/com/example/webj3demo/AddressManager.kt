@@ -69,7 +69,7 @@ object AddressManager {
                 web3j,
                 RawTransactionManager(web3j, credentials, getChainId(type)),
                 StaticGasProvider(
-                    BigInteger.valueOf(32000000000L),
+                    BigInteger.valueOf(32_000_000_000L),
                     Contract.GAS_LIMIT
                 )
             )
