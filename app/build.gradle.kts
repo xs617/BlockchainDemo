@@ -74,4 +74,8 @@ dependencies {
     implementation("org.bitcoinj:bitcoinj-core:0.16.3"){
         exclude("org.bouncycastle","bcprov-jdk15to18")
     }
+    implementation("fr.acinq.bitcoin:bitcoin-kmp-jvm:0.21.0")
+    implementation("fr.acinq.secp256k1:secp256k1-kmp-jni-android:0.16.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.1.0")
 }

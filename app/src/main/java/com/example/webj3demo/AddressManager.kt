@@ -15,6 +15,7 @@ object AddressManager {
             NetworkType.ETH_SEPOLIA -> "https://sepolia.infura.io/v3/ed257b038fdf462ebb43a33f967277c9"
             NetworkType.BNB_TESTNET -> "https://data-seed-prebsc-1-s1.binance.org:8545/"
             NetworkType.POLYGON_AMOY -> "https://polygon-amoy.drpc.org"
+            NetworkType.BTC_TESTNET -> "https://bitcoin-testnet-rpc.publicnode.com"
             else -> ""
         }
     }
@@ -83,5 +84,6 @@ object AddressManager {
 enum class NetworkType {
     ETH_SEPOLIA,
     BNB_TESTNET,
-    POLYGON_AMOY
+    POLYGON_AMOY,
+    BTC_TESTNET
 }

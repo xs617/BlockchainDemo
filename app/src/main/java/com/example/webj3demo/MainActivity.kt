@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
                         Greeting("创建钱包", Modifier.clickable {
                             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                                 try {
-                                    ETHWalletDemo(NetworkType.ETH_SEPOLIA).createWallet(this@MainActivity)
+                                    MyWallet.createWallet(this@MainActivity)
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
@@ -99,7 +99,17 @@ class MainActivity : ComponentActivity() {
                         Greeting("创建钱包的btc地址", Modifier.clickable {
                             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                                 try {
-                                    ETHWalletDemo(NetworkType.ETH_SEPOLIA).createBtcAddress()
+                                    BTCWalletDemo.createBtcAddress()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        })
+                        Greeting("btc转账", Modifier.clickable {
+                            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                                try {
+//                                    BTCWalletDemo.transaction(this@MainActivity)
+                                    BTCWalletDemo.test3()
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
