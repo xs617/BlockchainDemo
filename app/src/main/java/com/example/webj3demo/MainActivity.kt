@@ -108,8 +108,7 @@ class MainActivity : ComponentActivity() {
                         Greeting("btc转账", Modifier.clickable {
                             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
                                 try {
-//                                    BTCWalletDemo.transaction(this@MainActivity)
-                                    BTCWalletDemo.test3()
+                                    BTCWalletDemo.transaction()
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
