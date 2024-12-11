@@ -44,8 +44,12 @@ object MyWallet {
         )
     }
 
-    fun transactionBTC(){
-        val transaction = Transaction(TestNet3Params())
-
+    fun hexStringToByteArray(hex: String): ByteArray {
+        val byteArray = ByteArray(hex.length / 2)
+        for (i in byteArray.indices) {
+            byteArray[i] =
+                ((hex[i * 2].digitToInt(16) shl 4) + hex[i * 2 + 1].digitToInt(16)).toByte()
+        }
+        return byteArray
     }
 }

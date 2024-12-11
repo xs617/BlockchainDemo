@@ -1,25 +1,19 @@
 package com.example.webj3demo
 
-import android.content.Context
 import android.util.Log
 import com.google.gson.GsonBuilder
-import fr.acinq.bitcoin.Bitcoin.addressFromPublicKeyScript
 import fr.acinq.bitcoin.Bitcoin.addressToPublicKeyScript
 import fr.acinq.bitcoin.Block
-import fr.acinq.bitcoin.BlockHash
 import fr.acinq.bitcoin.DeterministicWallet
 import fr.acinq.bitcoin.KeyPath
 import fr.acinq.bitcoin.MnemonicCode
 import fr.acinq.bitcoin.OutPoint
-import fr.acinq.bitcoin.Satoshi
-import fr.acinq.bitcoin.ScriptFlags
 import fr.acinq.bitcoin.Transaction
 import fr.acinq.bitcoin.TxId
 import fr.acinq.bitcoin.TxIn
 import fr.acinq.bitcoin.TxOut
 import fr.acinq.bitcoin.XonlyPublicKey
 import fr.acinq.bitcoin.sat
-import fr.acinq.bitcoin.toSatoshi
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
@@ -151,7 +145,7 @@ object BTCWalletDemo {
         val btcKey = ECKey.fromPrivate(bip44Keypair.privateKey)
         val hexTapTweak =
             "e80fe1639c9ca050e3af1b39c143c63e429cbceb15d940fbb5c5a1f4af57c5e9e80fe1639c9ca050e3af1b39c143c63e429cbceb15d940fbb5c5a1f4af57c5e9"
-        val tapTweak = hexStringToByteArray(hexTapTweak)
+        val tapTweak = MyWallet.hexStringToByteArray(hexTapTweak)
         /// Tweaked Public Key Q = P + tG
         val p =
             btcKey.pubKey.copyOfRange(1, 33) // Replace this with the actual public key (33 bytes)
@@ -169,24 +163,6 @@ object BTCWalletDemo {
         return ""
     }
 
-    fun buildTaprootWithChainHash(mnemonic: String, blockHash: BlockHash): String {
-        val seed = MnemonicCode.toSeed(mnemonic, "")
-        val master = DeterministicWallet.generate(seed)
-        val accountKey = DeterministicWallet.derivePrivateKey(master, KeyPath("m/86'/0'/0'"))
-        val key = DeterministicWallet.derivePrivateKey(accountKey, listOf(0L, 0L))
-        val internalKey = XonlyPublicKey(key.publicKey)
-        return internalKey.publicKey.p2trAddress(blockHash)
-    }
-
-    fun hexStringToByteArray(hex: String): ByteArray {
-        val byteArray = ByteArray(hex.length / 2)
-        for (i in byteArray.indices) {
-            byteArray[i] =
-                ((hex[i * 2].digitToInt(16) shl 4) + hex[i * 2 + 1].digitToInt(16)).toByte()
-        }
-        return byteArray
-    }
-
     suspend fun transaction() {
         val mSeed = MnemonicCode.toSeed(MyWallet.myM, "")
         val mMaster = DeterministicWallet.generate(mSeed)
@@ -194,6 +170,9 @@ object BTCWalletDemo {
         val mKey = DeterministicWallet.derivePrivateKey(mAccountKey, listOf(0L, 0L))
         val mInternalKey = XonlyPublicKey(mKey.publicKey)
         val myTapRoot = mInternalKey.publicKey.p2trAddress(Block.Testnet4GenesisBlock.hash)
+//        val otherP2WPKHAddress = "tb1q6jhtyvpkedwcqmz0vrd2t9wqjny2874q7r8j8t"
+//        val otherP2WSHAddress = "2N6uYJeFubNS67MFZKTbcNDrDXG8iKmPBV6"
+//        val otherP2PKHAddress = "mtsqhQPJnks27JAhwEY316knFyHQFwpgya"
         val otherTapRoot = "tb1pfjayymatcwdmxw89kmntzqprlqn0xmcekfkfv4g5gz8evu4smtvszl2567"
         val response = api.getAddressUtxo(myTapRoot).awaitResponse()
         Log.e("wjr", "utxo : ${response.body()}")
